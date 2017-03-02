@@ -1,56 +1,64 @@
 from math import sqrt
 import pandas as pd
 
-#df = pd.read_csv("https://static.turi.com/datasets/movie_ratings/training_data.csv")
-
 class recommender:
 
 	def __init__(self):
-		self.critics = {}
+		self.training_data = {}
+		self.test_data = {}
 
 
 	def load_dataset(self):
-		self.critics={'Lisa Rose': {'Lady in the Water': 2.5, 'Snakes on a Plane': 3.5,
-				'Just My Luck': 3.0, 'Superman Returns': 3.5, 'You, Me and Dupree': 2.5,
-				'The Night Listener': 3.0},
-				'Gene Seymour': {'Lady in the Water': 3.0, 'Snakes on a Plane': 3.5,
-				'Just My Luck': 1.5, 'Superman Returns': 5.0, 'The Night Listener': 3.0,
-				'You, Me and Dupree': 3.5},
-				'Michael Phillips': {'Lady in the Water': 2.5, 'Snakes on a Plane': 3.0,
-				'Superman Returns': 3.5, 'The Night Listener': 4.0},
-				'Claudia Puig': {'Snakes on a Plane': 3.5, 'Just My Luck': 3.0,
-				'The Night Listener': 4.5, 'Superman Returns': 4.0,
-				'You, Me and Dupree': 2.5},
-				'Mick LaSalle': {'Lady in the Water': 3.0, 'Snakes on a Plane': 4.0,
-				'Just My Luck': 2.0, 'Superman Returns': 3.0, 'The Night Listener': 3.0,
-				'You, Me and Dupree': 2.0},
-				'Jack Matthews': {'Lady in the Water': 3.0, 'Snakes on a Plane': 4.0,
-				'The Night Listener': 3.0, 'Superman Returns': 5.0, 'You, Me and Dupree': 3.5},
-				'Toby': {'Snakes on a Plane':4.5,'You, Me and Dupree':1.0,'Superman Returns':4.0}}
-		return self.critics
+		df = pd.read_csv("https://static.turi.com/datasets/movie_ratings/training_data.csv")
+		users = {}
+
+		for index,row in df.iterrows():
+			key = row["user"]
+			movie = row["movie"]
+			rating = row["rating"]
+			movie_entry = {movie:rating}
+			if key in users:
+				users[key][movie] = rating
+			else:
+				users[key] = movie_entry;
+
+		count = 0
+		length = len(users)
+
+		for key,value in users.iteritems():
+			count += 1
+			if(count <= length*0.7):
+				self.training_data[key] = value
+			else:
+				self.test_data[key] = value
+
+		return self.test_data
+
+	def add_to_training_data(self,key,value):
+		self.training_data[key] = value
 
 	# Returns a eucledian distance-based similarity score for person1 and person2
-	def sim_distance(self,prefs,person1,person2):
+	def sim_distance(self,person1,person2):
 		# Get the list of shared_items
 		si={}
-		for item in prefs[person1]:
-			if item in prefs[person2]:
+		for item in self.training_data[person1]:
+			if item in self.training_data[person2]:
 				si[item]=1
 		# if they have no ratings in common, return 0
 		if len(si)==0: 
 			return 0
 		# Add up the squares of all the differences
-		sum_of_squares=sum([pow(prefs[person1][item]-prefs[person2][item],2)
-							for item in prefs[person1] if item in prefs[person2]])
+		sum_of_squares=sum([pow(self.training_data[person1][item]-self.training_data[person2][item],2)
+							for item in self.training_data[person1] if item in self.training_data[person2]])
 		return 1/(1+sum_of_squares)
 
 
 	# Returns the Pearson correlation coefficient for p1 and p2
-	def sim_pearson(self,prefs,p1,p2):
+	def sim_pearson(self,p1,p2):
 		# Get the list of mutually rated items
 		si={}
-		for item in prefs[p1]:
-			if item in prefs[p2]: 
+		for item in self.training_data[p1]:
+			if item in self.training_data[p2]: 
 				si[item]=1
 		# Find the number of elements
 		n=len(si)
@@ -60,15 +68,15 @@ class recommender:
 			return 0
 
 		# Add up all the preferences
-		sum1=sum([prefs[p1][it] for it in si])
-		sum2=sum([prefs[p2][it] for it in si])
+		sum1=sum([self.training_data[p1][it] for it in si])
+		sum2=sum([self.training_data[p2][it] for it in si])
 
 		# Sum up the squares
-		sum1Sq=sum([pow(prefs[p1][it],2) for it in si])
-		sum2Sq=sum([pow(prefs[p2][it],2) for it in si])
+		sum1Sq=sum([pow(self.training_data[p1][it],2) for it in si])
+		sum2Sq=sum([pow(self.training_data[p2][it],2) for it in si])
 
 		# Sum up the products
-		pSum=sum([prefs[p1][it]*prefs[p2][it] for it in si])
+		pSum=sum([self.training_data[p1][it]*self.training_data[p2][it] for it in si])
 
 		# Calculate Pearson score
 		num=pSum-(sum1*sum2/n)
@@ -83,27 +91,27 @@ class recommender:
 
 	# Gets recommendations for a person by using a weighted average
 	# of every other user's rankings
-	def getRecommendations(self,prefs,person,simM = 0):
+	def getRecommendations(self,person,simM = 0):
 		totals={}
 		simSums={}
 
-		for other in prefs:
+		for other in self.training_data:
 		# don't compare me to myself
 			if other==person: 
 				continue
 
 			if simM == 0:
-				sim = self.sim_pearson(prefs,person,other)
+				sim = self.sim_pearson(person,other)
 			else:
-				sim=self.sim_distance(prefs,person,other)
+				sim=self.sim_distance(person,other)
 			# ignore scores of zero or lower
 			if sim<=0: continue
-			for item in prefs[other]:
+			for item in self.training_data[other]:
 				# only score movies I haven't seen yet
-				if item not in prefs[person] or prefs[person][item]==0:
+				if item not in self.training_data[person] or self.training_data[person][item]==0:
 					# Similarity * Score
 					totals.setdefault(item,0)
-					totals[item]+=prefs[other][item]*sim
+					totals[item]+=self.training_data[other][item]*sim
 					# Sum of similarities
 					simSums.setdefault(item,0)
 					simSums[item]+=sim
@@ -118,9 +126,32 @@ class recommender:
 
 def main():
 	recom = recommender();
-	critics = recom.load_dataset();
-	print recom.getRecommendations(critics,'Toby')
-	print recom.getRecommendations(critics,'Toby',simM = 1)
+	validation_data = recom.load_dataset();
+	index = int(raw_input("enter index"))
+	while(index >= 0):
+		user1 = validation_data.keys()[index]
+		value1 = validation_data[user1]
+		movie_name = value1.keys()[0]
+		exp_rating = value1[movie_name]
+		value1.pop(movie_name)
+		recom.add_to_training_data(user1,value1)
+		pearson_recom = recom.getRecommendations(user1)
+		eucledian_recom =  recom.getRecommendations(user1,simM = 1)
+
+		print "User name is: "+str(user1)+" movie name is: "+str(movie_name)
+
+		for i in range(len(pearson_recom)):
+			if(pearson_recom[i][1] == movie_name):
+				print "rating given by Pearson distance is: "+str(pearson_recom[i][0])
+				break;
+
+		for i in range(len(eucledian_recom)):
+			if eucledian_recom[i][1] == movie_name :
+				print "rating given by Eucledian distance is: "+str(eucledian_recom[i][0])
+				break;
+
+		print "Expected rating is: "+str(exp_rating)
+		index = int(raw_input("enter index"))
 
 if __name__ == '__main__':
 	main()
