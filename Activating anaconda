@@ -1,0 +1,4 @@
+Path to activate Anaconda2
+change working directory to anaconda2
+Enter : source bin/activate ~/anaconda2
+Enter : source activate gl-env

@@ -39,43 +39,38 @@ class recommender:
 
 	# Returns a eucledian distance-based similarity score for person1 and person2
 	def sim_distance(self,person1,person2):
-		# Get the list of shared_items
 		si={}
 		for item in self.training_data[person1]:
 			if item in self.training_data[person2]:
 				si[item]=1
-		# if they have no ratings in common, return 0
 		if len(si)==0: 
 			return 0
-		# Add up the squares of all the differences
 		sum_of_squares=sum([pow(self.training_data[person1][item]-self.training_data[person2][item],2)
 							for item in self.training_data[person1] if item in self.training_data[person2]])
 		return 1/(1+sum_of_squares)
 
 
-	# Returns the Pearson correlation coefficient for p1 and p2
-	def sim_pearson(self,p1,p2):
-		# Get the list of mutually rated items
+	# Returns the Pearson correlation coefficient between person1 and person2
+	def sim_pearson(self,person1,person2):
 		si={}
 		for item in self.training_data[p1]:
 			if item in self.training_data[p2]: 
 				si[item]=1
-		# Find the number of elements
 		n=len(si)
 
-		# if they are no ratings in common, return 0
+		
 		if n==0: 
 			return 0
 
-		# Add up all the preferences
+		# Add preferences
 		sum1=sum([self.training_data[p1][it] for it in si])
 		sum2=sum([self.training_data[p2][it] for it in si])
 
-		# Sum up the squares
+		# Sum of the squares
 		sum1Sq=sum([pow(self.training_data[p1][it],2) for it in si])
 		sum2Sq=sum([pow(self.training_data[p2][it],2) for it in si])
 
-		# Sum up the products
+		# Sum of products
 		pSum=sum([self.training_data[p1][it]*self.training_data[p2][it] for it in si])
 
 		# Calculate Pearson score
@@ -89,8 +84,6 @@ class recommender:
 		return r
 
 
-	# Gets recommendations for a person by using a weighted average
-	# of every other user's rankings
 	def getRecommendations(self,person,simM = 0):
 		totals={}
 		simSums={}
@@ -104,10 +97,8 @@ class recommender:
 				sim = self.sim_pearson(person,other)
 			else:
 				sim=self.sim_distance(person,other)
-			# ignore scores of zero or lower
 			if sim<=0: continue
 			for item in self.training_data[other]:
-				# only score movies I haven't seen yet
 				if item not in self.training_data[person] or self.training_data[person][item]==0:
 					# Similarity * Score
 					totals.setdefault(item,0)
@@ -116,11 +107,9 @@ class recommender:
 					simSums.setdefault(item,0)
 					simSums[item]+=sim
 
-		# Create the normalized list
+		
 		rankings=[(total/simSums[item],item) for item,total in totals.items( )]
-		# Return the sorted list
-		rankings.sort( )
-		rankings.reverse( )
+		rankings.sort( ).reverse()
 		return rankings
 
 
